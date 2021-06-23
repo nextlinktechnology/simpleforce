@@ -1,18 +1,19 @@
 package simpleforce
 
 import (
+	"bytes"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"html"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
-	"bytes"
+
+	"github.com/teltech/logger"
 )
 
 const (
@@ -22,6 +23,8 @@ const (
 
 	logPrefix = "[simpleforce]"
 )
+
+var log *logger.Log
 
 // Client is the main instance to access salesforce.
 type Client struct {
@@ -50,7 +53,7 @@ type QueryResult struct {
 
 // Expose sid to save in admin settings
 func (client *Client) GetSid() (sid string) {
-        return client.sessionID
+	return client.sessionID
 }
 
 //Expose Loc to save in admin settings
@@ -60,8 +63,8 @@ func (client *Client) GetLoc() (loc string) {
 
 // Set SID and Loc as a means to log in without LoginPassword
 func (client *Client) SetSidLoc(sid string, loc string) {
-        client.sessionID = sid
-        client.instanceURL = loc
+	client.sessionID = sid
+	client.instanceURL = loc
 }
 
 // Query runs an SOQL query. q could either be the SOQL string or the nextRecordsURL.
@@ -86,7 +89,7 @@ func (client *Client) Query(q string) (*QueryResult, error) {
 
 	data, err := client.httpRequest("GET", u, nil)
 	if err != nil {
-		log.Println(logPrefix, "HTTP GET request failed:", u)
+		log.Errorf("%s HTTP GET request failed: %s", logPrefix, u)
 		return nil, err
 	}
 
@@ -150,7 +153,7 @@ func (client *Client) LoginPassword(username, password, token string) error {
 	url := fmt.Sprintf("%s/services/Soap/u/%s", client.baseURL, client.apiVersion)
 	req, err := http.NewRequest(http.MethodPost, url, strings.NewReader(soapBody))
 	if err != nil {
-		log.Println(logPrefix, "error occurred creating request,", err)
+		log.Errorf("%s error occurred creating request, %q", logPrefix, err)
 		return err
 	}
 	req.Header.Add("Content-Type", "text/xml")
@@ -159,17 +162,17 @@ func (client *Client) LoginPassword(username, password, token string) error {
 
 	resp, err := client.httpClient.Do(req)
 	if err != nil {
-		log.Println(logPrefix, "error occurred submitting request,", err)
+		log.Errorf("%s error occurred submitting request, %q", logPrefix, err)
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Println(logPrefix, "request failed,", resp.StatusCode)
+		log.Warnf("%s request failed, %d", logPrefix, resp.StatusCode)
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(resp.Body)
 		newStr := buf.String()
-		log.Println(logPrefix, "Failed resp.body: ", newStr)
+		log.Warnf("%s Failed resp.body: %s", logPrefix, newStr)
 		theError := ParseSalesforceError(resp.StatusCode, buf.Bytes())
 		return theError
 	}
@@ -177,7 +180,7 @@ func (client *Client) LoginPassword(username, password, token string) error {
 	respData, err := ioutil.ReadAll(resp.Body)
 
 	if err != nil {
-		log.Println(logPrefix, "error occurred reading response data,", err)
+		log.Errorf("%s error occurred reading response data, %q", logPrefix, err)
 	}
 
 	var loginResponse struct {
@@ -192,7 +195,7 @@ func (client *Client) LoginPassword(username, password, token string) error {
 
 	err = xml.Unmarshal(respData, &loginResponse)
 	if err != nil {
-		log.Println(logPrefix, "error occurred parsing login response,", err)
+		log.Errorf("%s error occurred parsing login response, %q", logPrefix, err)
 		return err
 	}
 
@@ -204,7 +207,7 @@ func (client *Client) LoginPassword(username, password, token string) error {
 	client.user.email = loginResponse.UserEmail
 	client.user.fullName = loginResponse.UserFullName
 
-	log.Println(logPrefix, "User", client.user.name, "authenticated.")
+	log.Infof("%s User %s authenticated.", logPrefix, client.user.name)
 	return nil
 }
 
@@ -225,12 +228,12 @@ func (client *Client) httpRequest(method, url string, body io.Reader) ([]byte, e
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		log.Println(logPrefix, "request failed,", resp.StatusCode)
+		log.Warnf("%s request failed, %d", logPrefix, resp.StatusCode)
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(resp.Body)
 		newStr := buf.String()
 		theError := ParseSalesforceError(resp.StatusCode, buf.Bytes())
-		log.Println(logPrefix, "Failed resp.body: ", newStr)
+		log.Warnf("%s Failed resp.body: %s", logPrefix, newStr)
 		return nil, theError
 	}
 
@@ -245,7 +248,7 @@ func (client *Client) makeURL(req string) string {
 }
 
 // NewClient creates a new instance of the client.
-func NewClient(url, clientID, apiVersion string) *Client {
+func NewClient(url, clientID, apiVersion string, mylog *logger.Log) *Client {
 	client := &Client{
 		apiVersion: apiVersion,
 		baseURL:    url,
@@ -257,6 +260,9 @@ func NewClient(url, clientID, apiVersion string) *Client {
 	if !strings.HasSuffix(client.baseURL, "/") {
 		client.baseURL = client.baseURL + "/"
 	}
+
+	log = mylog
+
 	return client
 }
 
@@ -326,9 +332,9 @@ func (client *Client) DescribeGlobal() (*SObjectMeta, error) {
 	var meta SObjectMeta
 
 	respData, err := ioutil.ReadAll(resp.Body)
-	log.Println(logPrefix, fmt.Sprintf("status code %d", resp.StatusCode))
+	log.Infof("%s status code %d", logPrefix, resp.StatusCode)
 	if err != nil {
-		log.Println(logPrefix, "error while reading all body")
+		log.Errorf("%s error while reading all body", logPrefix)
 	}
 
 	err = json.Unmarshal(respData, &meta)

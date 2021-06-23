@@ -3,7 +3,6 @@ package simpleforce
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/url"
 )
 
@@ -41,7 +40,7 @@ func (client *Client) ExecuteAnonymous(apexBody string) (*ExecuteAnonymousResult
 
 	data, err := client.httpRequest("GET", endpoint, nil)
 	if err != nil {
-		log.Println(logPrefix, "HTTP GET request failed:", endpoint)
+		log.Errorf("%s HTTP GET request failed: %q", logPrefix, endpoint)
 		return nil, err
 	}
 

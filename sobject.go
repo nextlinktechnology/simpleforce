@@ -3,7 +3,6 @@ package simpleforce
 import (
 	"bytes"
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 )
@@ -87,20 +86,20 @@ func (obj *SObject) Get(id ...string) *SObject {
 		oid = id[0]
 	}
 	if oid == "" {
-		log.Println(logPrefix, "object id not found.")
+		log.Warnf("%s object id not found.", logPrefix)
 		return nil
 	}
 
 	url := obj.client().makeURL("sobjects/" + obj.Type() + "/" + oid)
 	data, err := obj.client().httpRequest(http.MethodGet, url, nil)
 	if err != nil {
-		log.Println(logPrefix, "http request failed,", err)
+		log.Errorf("%s http request failed, %q", logPrefix, err)
 		return nil
 	}
 
 	err = json.Unmarshal(data, obj)
 	if err != nil {
-		log.Println(logPrefix, "json decode failed,", err)
+		log.Errorf("%s json decode failed, %q", logPrefix, err)
 		return nil
 	}
 
@@ -121,14 +120,14 @@ func (obj *SObject) Create() *SObject {
 	reqObj := obj.makeCopy()
 	reqData, err := json.Marshal(reqObj)
 	if err != nil {
-		log.Println(logPrefix, "failed to convert sobject to json,", err)
+		log.Errorf("%s failed to convert sobject to json, %q", logPrefix, err)
 		return nil
 	}
 
 	url := obj.client().makeURL("sobjects/" + obj.Type() + "/")
 	respData, err := obj.client().httpRequest(http.MethodPost, url, bytes.NewReader(reqData))
 	if err != nil {
-		log.Println(logPrefix, "failed to process http request,", err)
+		log.Errorf("%s failed to process http request, %q", logPrefix, err)
 		return nil
 	}
 
@@ -140,12 +139,12 @@ func (obj *SObject) Create() *SObject {
 	}
 	err = json.Unmarshal(respData, &respVal)
 	if err != nil {
-		log.Println(logPrefix, "failed to process response data,", err)
+		log.Errorf("%s failed to process response data, %q", logPrefix, err)
 		return nil
 	}
 
 	if !respVal.Success || respVal.ID == "" {
-		log.Println(logPrefix, "unsuccessful")
+		log.Warnf("%s unsuccessful", logPrefix)
 		return nil
 	}
 
@@ -165,7 +164,7 @@ func (obj *SObject) Update() *SObject {
 	reqObj := obj.makeCopy()
 	reqData, err := json.Marshal(reqObj)
 	if err != nil {
-		log.Println(logPrefix, "failed to convert sobject to json,", err)
+		log.Errorf("%s failed to convert sobject to json, %q", logPrefix, err)
 		return nil
 	}
 
@@ -176,10 +175,10 @@ func (obj *SObject) Update() *SObject {
 	url := obj.client().makeURL(queryBase + obj.Type() + "/" + obj.ID())
 	respData, err := obj.client().httpRequest(http.MethodPatch, url, bytes.NewReader(reqData))
 	if err != nil {
-		log.Println(logPrefix, "failed to process http request,", err)
+		log.Errorf("%s failed to process http request, %q", logPrefix, err)
 		return nil
 	}
-	log.Println(string(respData))
+	log.Info(string(respData))
 
 	return obj
 }
@@ -201,7 +200,7 @@ func (obj *SObject) Delete(id ...string) error {
 	}
 
 	url := obj.client().makeURL("sobjects/" + obj.Type() + "/" + obj.ID())
-	log.Println(url)
+	log.Info(url)
 	_, err := obj.client().httpRequest(http.MethodDelete, url, nil)
 	if err != nil {
 		return err
@@ -271,7 +270,7 @@ func (obj *SObject) SObjectField(typeName, key string) *SObject {
 	rIndex := strings.LastIndex(url, "/")
 	if rIndex == -1 || rIndex+1 == len(url) {
 		// hmm... this shouldn't happen, unless the URL is hand crafted.
-		log.Println(logPrefix, "invalid url,", url)
+		log.Errorf("%s invalid url, %q", logPrefix, url)
 		return nil
 	}
 	oid = url[rIndex+1:]

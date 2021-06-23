@@ -1,10 +1,11 @@
 package simpleforce
 
 import (
-	"log"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/teltech/logger"
 )
 
 var (
@@ -22,7 +23,7 @@ var (
 
 func checkCredentialsAndSkip(t *testing.T) {
 	if sfUser == "" || sfPass == "" {
-		log.Println(logPrefix, "SF_USER, SF_PASS environment variables are not set.")
+		log.Infof("%s SF_USER, SF_PASS environment variables are not set.", logPrefix)
 		t.Skip()
 	}
 }
@@ -32,7 +33,7 @@ func requireClient(t *testing.T, skippable bool) *Client {
 		checkCredentialsAndSkip(t)
 	}
 
-	client := NewClient(sfURL, DefaultClientID, DefaultAPIVersion)
+	client := NewClient(sfURL, DefaultClientID, DefaultAPIVersion, logger.New())
 	if client == nil {
 		t.Fail()
 	}
@@ -46,7 +47,7 @@ func requireClient(t *testing.T, skippable bool) *Client {
 func TestClient_LoginPassword(t *testing.T) {
 	checkCredentialsAndSkip(t)
 
-	client := NewClient(sfURL, DefaultClientID, DefaultAPIVersion)
+	client := NewClient(sfURL, DefaultClientID, DefaultAPIVersion, logger.New())
 	if client == nil {
 		t.Fatal()
 	}
@@ -56,7 +57,7 @@ func TestClient_LoginPassword(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	} else {
-		log.Println(logPrefix, "sessionID:", client.sessionID)
+		log.Infof("%s sessionID: %s", logPrefix, client.sessionID)
 	}
 
 	err = client.LoginPassword("__INVALID_USER__", "__INVALID_PASS__", "__INVALID_TOKEN__")
@@ -68,7 +69,7 @@ func TestClient_LoginPassword(t *testing.T) {
 func TestClient_LoginPasswordNoToken(t *testing.T) {
 	checkCredentialsAndSkip(t)
 
-	client := NewClient(sfURL, DefaultClientID, DefaultAPIVersion)
+	client := NewClient(sfURL, DefaultClientID, DefaultAPIVersion, logger.New())
 	if client == nil {
 		t.Fatal()
 	}
@@ -78,7 +79,7 @@ func TestClient_LoginPasswordNoToken(t *testing.T) {
 	if err != nil {
 		t.FailNow()
 	} else {
-		log.Println(logPrefix, "sessionID:", client.sessionID)
+		log.Infof("%s sessionID: %s", logPrefix, client.sessionID)
 	}
 }
 
@@ -92,13 +93,13 @@ func TestClient_Query(t *testing.T) {
 	q := "SELECT Id,LastModifiedById,LastModifiedDate,ParentId,CommentBody FROM CaseComment"
 	result, err := client.Query(q)
 	if err != nil {
-		log.Println(logPrefix, "query failed,", err)
+		log.Errorf("%s query failed, %q", logPrefix, err)
 		t.FailNow()
 	}
 
-	log.Println(logPrefix, result.TotalSize, result.Done, result.NextRecordsURL)
+	log.Infof("%s %d %t %s", logPrefix, result.TotalSize, result.Done, result.NextRecordsURL)
 	if result.TotalSize < 1 {
-		log.Println(logPrefix, "no records returned.")
+		log.Errorf("%s no records returned.", logPrefix)
 		t.FailNow()
 	}
 	for _, record := range result.Records {

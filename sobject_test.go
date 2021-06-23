@@ -1,7 +1,6 @@
 package simpleforce
 
 import (
-	"log"
 	"testing"
 	"time"
 )
@@ -58,18 +57,18 @@ func TestSObject_SObjectField(t *testing.T) {
 	// Positive checks
 	caseObj := obj.SObjectField("Case", "ParentId")
 	if caseObj.Type() != "Case" {
-		log.Println("Type mismatch")
+		log.Info("Type mismatch")
 		t.Fail()
 	}
 	if caseObj.StringField("Id") != "__PARENT_ID__" {
-		log.Println("ID mismatch")
+		log.Info("ID mismatch")
 		t.Fail()
 	}
 
 	// Negative checks
 	userObj := obj.SObjectField("User", "OwnerId")
 	if userObj != nil {
-		log.Println("Nil mismatch")
+		log.Debug("Nil mismatch")
 		t.Fail()
 	}
 }
@@ -92,7 +91,7 @@ func TestSObject_Get(t *testing.T) {
 	// Search for a valid Case ID first.
 	queryResult, err := client.Query("SELECT Id,OwnerId,Subject FROM CASE")
 	if err != nil || queryResult == nil {
-		log.Println(logPrefix, "query failed,", err)
+		log.Errorf("%s query failed, %q", logPrefix, err)
 		t.FailNow()
 	}
 	if queryResult.TotalSize < 1 {
@@ -142,7 +141,7 @@ func TestSObject_Create(t *testing.T) {
 	if case1Result == nil || case1Result.ID() == "" || case1Result.Type() != case1.Type() {
 		t.Fail()
 	} else {
-		log.Println(logPrefix, "Case created,", case1Result.Get().StringField("CaseNumber"))
+		log.Infof("%s Case created, %s", logPrefix, case1Result.Get().StringField("CaseNumber"))
 	}
 
 	// Positive 2
@@ -154,7 +153,7 @@ func TestSObject_Create(t *testing.T) {
 	if caseComment1Result.Get().SObjectField("Case", "ParentId").ID() != case1Result.ID() {
 		t.Fail()
 	} else {
-		log.Println(logPrefix, "CaseComment created,", caseComment1Result.ID())
+		log.Infof("%s CaseComment created, %s", logPrefix, caseComment1Result.ID())
 	}
 
 	// Negative: object without type.
@@ -244,5 +243,5 @@ func TestSObject_GetUpdate(t *testing.T) {
 	}
 
 	user1 := client.SObject("User").Create()
-	log.Println(user1.ID())
+	log.Info(user1.ID())
 }
